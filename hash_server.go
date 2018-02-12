@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
@@ -15,22 +16,39 @@ func hashString(str string) string {
 	hashStr := hex.EncodeToString(hash.Sum(nil))
 
 	return hashStr
-
 }
 
-func handler(resp http.ResponseWriter, req *http.Request) {
+func hashHandler(resp http.ResponseWriter, req *http.Request) {
 
 	req.ParseForm()
 	args := req.Form
 	password := args["password"][0]
 	time.Sleep(5 * time.Second)
 	fmt.Fprintf(resp, "%s", hashString(password))
+}
 
+func shutdownHandler(shutdown chan<- bool) func(resp http.ResponseWriter, req *http.Request) {
+
+	return func(resp http.ResponseWriter, req *http.Request) {
+		fmt.Println("Shutdown signal recieved: Finishing requests")
+		shutdown <- true
+	}
 }
 
 func main() {
 
-	http.HandleFunc("/hash", handler)
-	http.ListenAndServe(":8080", nil)
+	srv := http.Server{Addr: ":8080"}
+	shutdown := make(chan bool, 1)
 
+	go func() {
+		http.HandleFunc("/hash", hashHandler)
+		http.HandleFunc("/shutdown", shutdownHandler(shutdown))
+		srv.ListenAndServe()
+	}()
+
+	<-shutdown
+
+	ctx, _ := context.WithTimeout(context.Background(), 6 * time.Second)
+	srv.Shutdown(ctx)
+	fmt.Println("Server shutdown")
 }
