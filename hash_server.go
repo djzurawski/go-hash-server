@@ -6,8 +6,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 )
+
+var id_cnt uint64
+var hashes sync.Map
 
 func hashString(str string) string {
 
@@ -18,13 +23,23 @@ func hashString(str string) string {
 	return hashStr
 }
 
+func save_hash(id uint64, password string) {
+
+	time.Sleep(5 * time.Second)
+	hashed_pass := hashString(password)
+	hashes.Store(id, hashed_pass)
+	fmt.Println("hashed")
+}
+
 func hashHandler(resp http.ResponseWriter, req *http.Request) {
 
 	req.ParseForm()
 	args := req.Form
 	password := args["password"][0]
-	time.Sleep(5 * time.Second)
-	fmt.Fprintf(resp, "%s", hashString(password))
+
+	id := atomic.AddUint64(&id_cnt, 1)
+	go save_hash(id, password)
+	fmt.Fprintf(resp, "%d\n", id)
 }
 
 func shutdownHandler(shutdown chan<- bool) func(resp http.ResponseWriter, req *http.Request) {
@@ -48,7 +63,7 @@ func main() {
 
 	<-shutdown
 
-	ctx, _ := context.WithTimeout(context.Background(), 6 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 6*time.Second)
 	srv.Shutdown(ctx)
 	fmt.Println("Server shutdown")
 }
