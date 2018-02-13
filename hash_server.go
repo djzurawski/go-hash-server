@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"path"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +44,14 @@ func hashHandler(resp http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(resp, "%d\n", id)
 }
 
+func retrieveHandler(resp http.ResponseWriter, req *http.Request) {
+	uri := req.RequestURI
+	id, _ := strconv.ParseUint(path.Base(uri), 10, 64)
+	hash, _ := hashes.Load(id)
+	fmt.Fprintf(resp, "%s\n", hash)
+
+}
+
 func shutdownHandler(shutdown chan<- bool) func(resp http.ResponseWriter, req *http.Request) {
 
 	return func(resp http.ResponseWriter, req *http.Request) {
@@ -56,6 +66,7 @@ func main() {
 	shutdown := make(chan bool, 1)
 
 	go func() {
+		http.HandleFunc("/hash/", retrieveHandler)
 		http.HandleFunc("/hash", hashHandler)
 		http.HandleFunc("/shutdown", shutdownHandler(shutdown))
 		srv.ListenAndServe()
