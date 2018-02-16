@@ -33,7 +33,7 @@ func hashString(str string) string {
 	return hashStr
 }
 
-func save_hash(id uint64, password string) {
+func saveHash(id uint64, password string) {
 
 	time.Sleep(5 * time.Second)
 	hashed_pass := hashString(password)
@@ -41,22 +41,24 @@ func save_hash(id uint64, password string) {
 	fmt.Println("Password hashed")
 }
 
+func updateTotalTime(start_time time.Time) {
+		elapsed := time.Since(start_time)
+		atomic.AddUint64(&total_hash_time, uint64(elapsed))
+}
+
 func hashHandler(resp http.ResponseWriter, req *http.Request) {
 
 	start := time.Now()
+	defer updateTotalTime(start)
 	req.ParseForm()
 	args := req.Form
 
 	if len(args["password"]) == 0 {
-		elapsed := time.Since(start)
-		atomic.AddUint64(&total_hash_time, uint64(elapsed))
 		fmt.Fprintf(resp, "Error: Missing password in form data\n")
 	} else {
 		password := args["password"][0]
 		id := atomic.AddUint64(&id_cnt, 1)
-		go save_hash(id, password)
-		elapsed := time.Since(start)
-		atomic.AddUint64(&total_hash_time, uint64(elapsed))
+		go saveHash(id, password)
 		fmt.Fprintf(resp, "%d\n", id)
 	}
 }
