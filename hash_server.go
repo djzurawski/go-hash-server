@@ -63,10 +63,12 @@ func hashHandler(resp http.ResponseWriter, req *http.Request) {
 
 func retrieveHandler(resp http.ResponseWriter, req *http.Request) {
 	uri := req.RequestURI
-	id, _ := strconv.ParseUint(path.Base(uri), 10, 64)
+	id, err := strconv.ParseUint(path.Base(uri), 10, 64)
 	hash, ok := hashes.Load(id)
 
-	if ok == true {
+	if err != nil {
+		fmt.Fprintf(resp, "Error: ID not valid format\n")
+	} else if ok == true {
 		fmt.Fprintf(resp, "%s\n", hash)
 	} else {
 		fmt.Fprintf(resp, "Error: Hash with ID %d not found\n", id)
@@ -75,8 +77,8 @@ func retrieveHandler(resp http.ResponseWriter, req *http.Request) {
 
 func shutdownHandler(resp http.ResponseWriter, req *http.Request) {
 
-		fmt.Println("Shutdown signal recieved: Finishing requests")
-		shutdown <- true
+	fmt.Println("Shutdown signal recieved: Finishing requests")
+	shutdown <- true
 }
 
 func statsHandler(resp http.ResponseWriter, req *http.Request) {
