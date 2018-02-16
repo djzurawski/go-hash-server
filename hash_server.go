@@ -17,7 +17,7 @@ import (
 var id_cnt uint64
 var hashes sync.Map
 var shutdown chan bool
-var total_hash_time uint64
+var total_request_time uint64
 
 type Stats struct {
 	Total   uint64  `json:"total"`
@@ -42,8 +42,8 @@ func saveHash(id uint64, password string) {
 }
 
 func updateTotalTime(start_time time.Time) {
-		elapsed := time.Since(start_time)
-		atomic.AddUint64(&total_hash_time, uint64(elapsed))
+	elapsed := time.Since(start_time)
+	atomic.AddUint64(&total_request_time, uint64(elapsed))
 }
 
 func hashHandler(resp http.ResponseWriter, req *http.Request) {
@@ -86,16 +86,16 @@ func shutdownHandler(resp http.ResponseWriter, req *http.Request) {
 func statsHandler(resp http.ResponseWriter, req *http.Request) {
 
 	total_hashes := atomic.LoadUint64(&id_cnt)
-	hash_time := atomic.LoadUint64(&total_hash_time)
+	request_time := atomic.LoadUint64(&total_request_time)
 
-	var avg_hash_time float64
+	var avg_request_time float64
 	if total_hashes == 0 {
-		avg_hash_time = 0.0
+		avg_request_time = 0.0
 	} else {
-		avg_hash_time = (float64(hash_time) / float64(total_hashes)) / float64(time.Millisecond)
+		avg_request_time = (float64(request_time) / float64(total_hashes)) / float64(time.Millisecond)
 	}
 
-	stat := Stats{Total: total_hashes, Average: avg_hash_time}
+	stat := Stats{Total: total_hashes, Average: avg_request_time}
 	json.NewEncoder(resp).Encode(stat)
 }
 
