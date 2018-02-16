@@ -16,6 +16,7 @@ import (
 
 var id_cnt uint64
 var hashes sync.Map
+var shutdown chan bool
 var total_hash_time uint64
 
 type Stats struct {
@@ -34,10 +35,10 @@ func hashString(str string) string {
 
 func save_hash(id uint64, password string) {
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(5 * time.Second)
 	hashed_pass := hashString(password)
 	hashes.Store(id, hashed_pass)
-	fmt.Println("hashed")
+	fmt.Println("Password hashed")
 }
 
 func hashHandler(resp http.ResponseWriter, req *http.Request) {
@@ -45,29 +46,37 @@ func hashHandler(resp http.ResponseWriter, req *http.Request) {
 	start := time.Now()
 	req.ParseForm()
 	args := req.Form
-	password := args["password"][0]
 
-	id := atomic.AddUint64(&id_cnt, 1)
-	go save_hash(id, password)
-	elapsed := time.Since(start)
-	atomic.AddUint64(&total_hash_time, uint64(elapsed))
-
-	fmt.Fprintf(resp, "%d\n", id)
+	if len(args["password"]) == 0 {
+		elapsed := time.Since(start)
+		atomic.AddUint64(&total_hash_time, uint64(elapsed))
+		fmt.Fprintf(resp, "Error: Missing password in form data\n")
+	} else {
+		password := args["password"][0]
+		id := atomic.AddUint64(&id_cnt, 1)
+		go save_hash(id, password)
+		elapsed := time.Since(start)
+		atomic.AddUint64(&total_hash_time, uint64(elapsed))
+		fmt.Fprintf(resp, "%d\n", id)
+	}
 }
 
 func retrieveHandler(resp http.ResponseWriter, req *http.Request) {
 	uri := req.RequestURI
 	id, _ := strconv.ParseUint(path.Base(uri), 10, 64)
-	hash, _ := hashes.Load(id)
-	fmt.Fprintf(resp, "%s\n", hash)
+	hash, ok := hashes.Load(id)
+
+	if ok == true {
+		fmt.Fprintf(resp, "%s\n", hash)
+	} else {
+		fmt.Fprintf(resp, "Error: Hash with ID %d not found\n", id)
+	}
 }
 
-func shutdownHandler(shutdown chan<- bool) func(resp http.ResponseWriter, req *http.Request) {
+func shutdownHandler(resp http.ResponseWriter, req *http.Request) {
 
-	return func(resp http.ResponseWriter, req *http.Request) {
 		fmt.Println("Shutdown signal recieved: Finishing requests")
 		shutdown <- true
-	}
 }
 
 func statsHandler(resp http.ResponseWriter, req *http.Request) {
@@ -89,13 +98,13 @@ func statsHandler(resp http.ResponseWriter, req *http.Request) {
 func main() {
 
 	srv := http.Server{Addr: ":8080"}
-	shutdown := make(chan bool, 1)
+	shutdown = make(chan bool, 1)
 
 	go func() {
 		http.HandleFunc("/hash/", retrieveHandler)
 		http.HandleFunc("/hash", hashHandler)
 		http.HandleFunc("/stats", statsHandler)
-		http.HandleFunc("/shutdown", shutdownHandler(shutdown))
+		http.HandleFunc("/shutdown", shutdownHandler)
 		srv.ListenAndServe()
 	}()
 
