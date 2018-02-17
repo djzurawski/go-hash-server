@@ -70,10 +70,12 @@ func retrieveHandler(resp http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		fmt.Fprintf(resp, "Error: ID not valid format\n")
-	} else if ok == true {
-		fmt.Fprintf(resp, "%s\n", hash)
-	} else {
+	} else if id <= id_cnt && ok != true {
+		fmt.Fprintf(resp, "Error: Please wait 5 seconds for hash to be processed\n")
+	} else if ok != true {
 		fmt.Fprintf(resp, "Error: Hash with ID %d not found\n", id)
+	} else {
+		fmt.Fprintf(resp, "%s\n", hash)
 	}
 }
 
