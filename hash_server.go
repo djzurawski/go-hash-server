@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha512"
-	"encoding/hex"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,7 +28,7 @@ func hashString(str string) string {
 
 	hash := sha512.New()
 	hash.Write([]byte(str))
-	hashStr := hex.EncodeToString(hash.Sum(nil))
+	hashStr := base64.StdEncoding.EncodeToString(hash.Sum(nil))
 
 	return hashStr
 }
